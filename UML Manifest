@@ -1,0 +1,55 @@
+@startuml
+actor User
+
+box "Automated Processing System" #lightblue
+    participant "FFmpeg" as FFmpeg
+    participant "Uploader" as WatchFolder
+end box
+
+participant "DAM" as Dam
+
+participant "OVP" as Ovp
+
+User -> Dam: Requests source video & dub audio
+activate Dam
+Dam --> User: Provides download links
+deactivate Dam
+
+User -> User: Downloads source video & dub audio
+
+User -> FFmpeg: Sends source.mp4 and dub.mp3 for processing
+activate FFmpeg
+
+FFmpeg -> FFmpeg: Removes original audio (if needed) & merges with dub audio using FFmpeg
+
+FFmpeg -> FFmpeg: Extracts audio from source.mp4
+note right of FFmpeg
+ffmpeg -i source.mp4 -vn -acodec mp3 audio_only.mp3
+end note
+
+FFmpeg -> FFmpeg: Extracts video without audio from source.mp4
+note right of FFmpeg
+ffmpeg -i source.mp4 -an -c:v copy video_only.mp4
+end note
+
+FFmpeg -> FFmpeg: Merges video_only.mp4 with dub.mp3
+note right of FFmpeg
+ffmpeg -i video_only.mp4 -i dub.mp3 -map 0:v -map 1:a -c:v copy -c:a aac output.mp4
+end note
+
+
+FFmpeg -> WatchFolder: Sends output.mp4 with metadata for ingestion
+deactivate FFmpeg
+
+activate WatchFolder
+WatchFolder -> Ovp: Uploads output.mp4 using TUS
+activate Ovp
+Ovp --> WatchFolder: Video uploaded successfully
+deactivate Ovp
+
+WatchFolder -> WatchFolder: Removes processed files
+deactivate WatchFolder
+
+User -> User: Plays combined video (on OVP)
+
+@enduml
